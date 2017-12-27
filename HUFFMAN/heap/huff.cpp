@@ -199,7 +199,8 @@ int main() {
 
 	cout << n << endl;
 	createHuffTree(tree,n,ele,weight);
-	createHuffCode(tree,n);
+
+    createHuffCode(tree,n);
 	for(int i = 0;i < 2*n - 1;i++) {
 		cout << tree[i].data << ":" << tree[i].lChild << " " << tree[i].rChild << endl;
 	}
