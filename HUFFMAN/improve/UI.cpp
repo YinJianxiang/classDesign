@@ -136,73 +136,6 @@ void UnCompress_UI() {
 
 
 
-void input_file_coding() {
-    int fd;
-    int choice;
-
-    //do {
-    
-    int width;
-    int depth;
-
-    get_Size(width,depth);
-    for(int i = 0;i < width * 0.3;i++) {
-        printf(" ");
-    }
-    //printf("");
-    char *file_name;
-    
-    char str[256];
-    
-    sprintf(str,"please input the file_name ^_^\n\33[%dC",0.3 * width);
-    file_name = readline(str);
-    //printf("file name(%s)\n",file_name);
-    file_name = get_file_name(file_name);
-
-    fd = open(file_name,O_RDONLY);
-
-    if(fd == -1) {
-        for(int i = 0;i < width * 0.3;i++) {
-            printf(" ");
-        }
-        printf("open the file failed!\n");
-        for(int i = 0;i < width * 0.3;i++) {
-            printf(" ");
-        }
-        printf("press any button to exit!\n");
-        for(int i = 0;i < width * 0.4;i++) {
-            printf(" ");
-        }
-        getchar();
-        close(fd);
-        return;
-    }
-
-    char input[STRING_LEN];
-    read(fd,input,STRING_LEN);
-    //printf("input:%s\n",input);   
-    int len = strlen(input) - 1;
-
-    cnt = 0;
-    FREQ *t = get_frequancy(input,len,cnt);    
-
-    createHuffManTree(tree,t,cnt);
-    getHuffManCoding(tree,cnt);
-    free(t);
-    //printf("----------------------------\n");
-    char hint[256];
-    for(int i = 0;i < width * 0.3;i++) {
-        printf(" ");
-    }
-    sprintf(hint,"press any button to exit\n\33[%dC",0.4 * width);
-    
-    printf("%s",hint);
-    
-    //} while(choice);
-
-    close(fd);
-}
-
 void input_file_decoding() {
     int choice;
     int fd;
@@ -328,9 +261,158 @@ void input_string_decoding() {
 	free(res);
 }
 
+void input_file_getRes() {
+    char *file_name;
+    int width;
+    int depth;
+
+    get_Size(width,depth);
+    system("clear");
+    
+    char str[256];
+    memset(str,0,sizeof(str));
+
+    for(int i = 0;i < 0.3 * width;i++) {
+        printf(" ");
+    }
+    sprintf(str,"please input the file_name ^_^\n\33[%dC",0.3 * width);
+    file_name = readline(str);
+    file_name = get_file_name(file_name);
+
+    int fd = open(file_name,O_RDONLY);
+    
+    if(fd == -1) {
+        for(int i = 0;i < width * 0.3;i++) {
+            printf(" ");
+        }
+        printf("open the file failed!\n");
+        for(int i = 0;i < width * 0.3;i++) {
+            printf(" ");
+        }
+        printf("press any button to exit!\n");
+        for(int i = 0;i < width * 0.4;i++) {
+            printf(" ");
+        }
+        getchar();
+        close(fd);
+        return;
+    }
+
+    char input[STRING_LEN];
+    read(fd,input,STRING_LEN);
+
+    codeString(input,tree,cnt);
+    getchar();
+    char hint[256];
+    for(int i = 0;i < width * 0.3;i++) {
+        printf(" ");
+    }
+    sprintf(hint,"press any button to exit\n\33[%dC",0.4 * width);
+    
+    printf("%s",hint);
+    
+
+    close(fd);
+}
+
+void input_string_getRes() {
+    system("clear");
+	int width;
+	int depth;
+	get_Size(width,depth);
+	for(int i = 0;i < 0.3*width;i++) {
+		printf(" ");
+	}
+    char str[256];
+    //printf("please input the string ^_^\n");
+    //char a[STRING_LEN];
+    sprintf(str,"please input the string ^_^\n\33[%dC",0.2*width);
+    char *a;
+
+    a = readline(str);
+    char *p = a + strlen(a);
+    *p = 0;
+    //printf("(%s)\n",a);
+    codeString(a,tree,cnt);
+    
+    getchar();
+    char hint[256];
+    for(int i = 0;i < width * 0.3;i++) {
+        printf(" ");
+    }
+    sprintf(hint,"press any button to exit\n\33[%dC",0.4 * width);
+    
+    printf("%s",hint);
+    printf("\n");
+}
 
 
+void input_file_coding() {
+    int fd;
+    int choice;
 
+    //do {
+    
+    int width;
+    int depth;
+
+    get_Size(width,depth);
+    for(int i = 0;i < width * 0.3;i++) {
+        printf(" ");
+    }
+    //printf("");
+    char *file_name;
+    
+    char str[256];
+    
+    sprintf(str,"please input the file_name ^_^\n\33[%dC",0.3 * width);
+    file_name = readline(str);
+    //printf("file name(%s)\n",file_name);
+    file_name = get_file_name(file_name);
+
+    fd = open(file_name,O_RDONLY);
+
+    if(fd == -1) {
+        for(int i = 0;i < width * 0.3;i++) {
+            printf(" ");
+        }
+        printf("open the file failed!\n");
+        for(int i = 0;i < width * 0.3;i++) {
+            printf(" ");
+        }
+        printf("press any button to exit!\n");
+        for(int i = 0;i < width * 0.4;i++) {
+            printf(" ");
+        }
+        getchar();
+        close(fd);
+        return;
+    }
+
+    char input[STRING_LEN];
+    read(fd,input,STRING_LEN);
+    //printf("input:%s\n",input);   
+    int len = strlen(input) - 1;
+
+    cnt = 0;
+    FREQ *t = get_frequancy(input,len,cnt);    
+
+    createHuffManTree(tree,t,cnt);
+    getHuffManCoding(tree,cnt);
+    free(t);
+    //printf("----------------------------\n");
+    char hint[256];
+    for(int i = 0;i < width * 0.3;i++) {
+        printf(" ");
+    }
+    sprintf(hint,"press any button to exit\n\33[%dC",0.4 * width);
+    
+    printf("%s",hint);
+    
+    //} while(choice);
+
+    close(fd);
+}
 void input_string_coding() {
 	system("clear");
 	int width;
@@ -516,11 +598,19 @@ void Huffcode_UI() {
         for(int i = 0;i < 0.3 * winSize;i++) {
             printf(" ");
         }
-        printf("1.input string\n");
+        printf("1.input string to create\n");
         for(int i = 0;i < 0.3 * winSize;i++) {
             printf(" ");
         }
-        printf("2.input file name\n");
+        printf("2.input file name to create\n");
+        for(int i = 0;i < 0.3 * winSize;i++) {
+            printf(" ");
+        }
+        printf("3.input string to get decode result\n");
+        for(int i = 0;i < 0.3 * winSize;i++) {
+            printf(" ");
+        }
+        printf("4.input file to get decode result\n");
         for(int i = 0;i < 0.3 * winSize;i++) {
             printf(" ");
         }
@@ -554,6 +644,12 @@ void Huffcode_UI() {
             case 2:
                 input_file_coding();
                 //getchar();
+                break;
+            case 3:
+                input_string_getRes();
+                break;
+            case 4:
+                input_file_getRes();
                 break;
             default:
                 break;

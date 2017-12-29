@@ -59,6 +59,47 @@ char* decodeHuffManCode(HuffManTree tree,int cnt,char *input) {
     return res;
 }
 
+void codeString(char *input,HuffManTree tree,int cnt) {
+    int i = 0;
+    int j;
+    int index = 0;
+    char str[STRING_LEN];
+    bool flag = true;
+
+    if(tree == NULL) {
+        printf("\033[45;31m you should coding first\n \033[0m");
+        getchar();
+        return;
+    }
+    /*
+    for(int i = 0;i < cnt;i++) {
+        printf("%c :%s\n",tree[i].data,tree[i].code);
+    }
+    printf("\n");
+    */
+    
+    memset(str,0,sizeof(str));
+    while(input[i]) {
+        for(j = 0;j <= cnt;j++) {
+            if(tree[j].data == input[i]) {
+                strcat(str,tree[j].code);
+            }
+        }
+        if(j == cnt) {
+            printf("(%c) cannot not be code\n",tree[j].data);
+            flag = false;
+            break;
+        }
+        i++;
+    }
+    if(flag == false) {
+        return;
+    }
+    printf("%s\n",str);
+
+    printf("\n");
+}
+
 void getHuffManCoding(HuffManTree tree,int cnt) {
     int start;
     char code[cnt];

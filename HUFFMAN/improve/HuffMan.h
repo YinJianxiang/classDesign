@@ -35,6 +35,7 @@ void createHuffManTree(HuffManTree &tree,FREQ* fq,int cnt);
 void destoryHuffManTree(HuffManTree &tree,int cnt);
 void select(HuffManTree &tree,int len,int &t_1,int &t_2);
 void getHuffManCoding(HuffManTree tree,int cnt);
+void codeString(char *input,HuffManTree tree,int cnt);
 char* decodeHuffManCode(HuffManTree tree,int cnt,char *input); 
 
 #endif
