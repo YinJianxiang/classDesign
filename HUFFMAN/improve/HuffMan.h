@@ -10,24 +10,38 @@
 
 using namespace std;
 
-const int maxn = 256;
+
+const int maxn = 256; ///< 最大ASCII码值
+
+
+//---------------------------------------------------------------------------
+// 哈弗曼编码译码需要的宏
+//---------------------------------------------------------------------------
 #define STRING_LEN 100001
 #define INF 0x3f3f3f3f
 
-//struct of frequancy
+
+
+/*
+ *@brief: 字符频度结构体
+ * 
+ */
 typedef struct FREQ {
-    char data;
-    int freq;
+    char data; ///< 字符
+    int freq;  ///< 对应字符出现的频度
 } FREQ;
 
-//struct of huffmantree
+/*
+ *@brief: 哈弗曼树节点
+ * 
+ */
 typedef struct HuffManNode {
-    int weight;
-    char *code;
-    char data;
-    int lChild;
-    int rChild;
-    int parent;
+    int weight; ///< 节点的权重
+    char *code; ///< 对应的编码
+    char data; ///< 字符
+    int lChild; ///< 节点的左孩子
+    int rChild; ///< 节点的右孩子
+    int parent; ///< 节点的父节点
 } HuffManNode,*HuffManTree;
 
 FREQ* get_frequancy(char *a,int len,int &cnt);

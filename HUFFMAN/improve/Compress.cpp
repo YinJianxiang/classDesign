@@ -21,419 +21,403 @@
 #include"Compress.h"
 #include"Queue.h"
 
-static void selectMin(HTNode *ht,int n,int *k);
-static int SortTree(HTNode *ht);
-static HTNode *CreatHFTreeFromFile(FILE * fp, short *leafNum, WeightType *FileLength);
-static char **getHuffManCode(HTNode *ht, short leafNum);
-static type GetBits(Queue *Q);
-static void getMaxMinLen(FILE *fp,HTNode *ht,char **hc,short leafNum,type *Max,type *Min);
-static short WriteCodeToFile(FILE *fp,char **hc,short leafNum,Queue *Q,type *length);
-static void InToQueue(Queue *Q,type ch);
 
 
-void selectMin(HTNode *ht,int n,int *k) {
-	WeightType Min = 0x3f3f3f3f;
-	int index;
-	for(int i = 0;i <= n;i++) {
-		if (0 == ht[i].parent && ht[i].weight < Min) {
-			Min = ht[i].weight;
-			index = i;
+void SelectMinTree(HTNode * ht, int n, int *k) {
+	int i, temp;
+	WeightType min;
+
+	
+	for (i = 0; i <= n; i++) {
+		if (0 == ht[i].parent) {
+			min = ht[i].weight;	//init min
+			temp = i;
+			break;
 		}
 	}
-	*k = index;
+	for (i++; i <= n; i++) {
+		if (0 == ht[i].parent && ht[i].weight < min) {
+			min = ht[i].weight;
+			temp = i;
+		}
+	}
+	*k = temp;
 }
 
-
 // 对哈夫曼树排序，并统计叶子数量
-int SortTree(HTNode *ht) {
+int SortTree(HTNode * ht)
+{
+	short i, j;
 	HTNode tmp;
 
-	for (int i = N - 1; i >= 0; i--) {
-		for (int j = 0; j < i; j++)
+	for (i = N - 1; i >= 0; i--) {
+		for (j = 0; j < i; j++)
 			if (ht[j].weight < ht[j + 1].weight) {
 				tmp = ht[j];
 				ht[j] = ht[j + 1];
 				ht[j + 1] = tmp;
 			}
 	}
-	int i;
-	for(i = 0; i < N; i++) {
+	for (i = 0; i < N; i++)
 		if (0 == ht[i].weight)
 			return i;
-	}
 	return i;		//返回叶子个数
 }
 
-//文件指针  叶子节点个数 文件长度
-HTNode *CreatHFTreeFromFile(FILE * fp, short *leafNum, WeightType *FileLength) {
-	HTNode *ht = NULL;
+//求哈夫曼0-1字符编码表
+char **CrtHuffmanCode(HTNode * ht, short LeafNum)
+/*从叶子结点到根，逆向求每个叶子结点对应的哈夫曼编码*/
+{
+	char *cd, **hc;		//容器
+	int i, start, p, last;
 
+	hc = (char **)malloc((LeafNum) * sizeof(char *));	/*分配n个编码的头指针 */
+
+	if (1 == LeafNum)	//只有一个叶子节点时 
+	{
+		hc[0] = (char *)malloc((LeafNum + 1) * sizeof(char));
+		strcpy(hc[0], "0");
+		return hc;
+	}
+
+	cd = (char *)malloc((LeafNum + 1) * sizeof(char));	/*分配求当前编码的工作空间 */
+	cd[LeafNum] = '\0';	/*从右向左逐位存放编码，首先存放编码结束符 */
+	for (i = 0; i < LeafNum; i++) {	/*求n个叶子结点对应的哈夫曼编码 */
+		start = LeafNum;	/*初始化编码起始指针 */
+		last = i;
+		for (p = ht[i].parent; p != 0; p = ht[p].parent) {	/*从叶子到根结点求编码 */
+			if (ht[p].lChild == last)
+				cd[--start] = '0';	/*左分支标0 */
+			else
+				cd[--start] = '1';	/*右分支标1 */
+			last = p;
+		}
+		hc[i] = (char *)malloc((LeafNum - start) * sizeof(char));	/*为第i个编码分配空间 */
+		strcpy(hc[i], &cd[start]);
+		//
+		printf("%3d号 %3c 码长:%2d;编码:%s\n", ht[i].ch, ht[i].ch,
+		       LeafNum - start, &cd[start]);
+	}			//getchar();
+	free(cd);		//     Printcode(hc,n);
+	return hc;
+}
+
+HTNode *CreatHFM(FILE * fp, short *n, WeightType * FileLength)
+{
+	HTNode *ht = NULL;
+	int i, m, s1, s2;
 	type ch;
 
-	ht = (HTNode *)malloc(2 * N * sizeof(HTNode));
-	if(!ht) {
-		printf("malloc failed\n");
+	ht = (HTNode *) malloc(2 * N * sizeof(HTNode));
+	if (!ht)
 		exit(1);
-	}
 
-	//初始化字符
-	for(int i = 0;i < N;i++) {
+	for (i = 0; i < N; i++) {
 		ht[i].weight = 0;
-		ht[i].ch = (type)i;
+		ht[i].ch = (type) i;	/*1-n号ch 为字符，初始化 */
 	}
 
-	//读取文件
-	for(*FileLength = 0;!feof(fp);(*FileLength)++) {
-		ch = fgetc(fp);
-		ht[ch].weight++;
+	for (*FileLength = 0; !feof(fp); ++(*FileLength)) {
+		ch = fgetc(fp);	//fread(&ch,1,1,fp);     
+		ht[ch].weight++;	//printf("ht[%c].weight= %ld\n",0,ht[0].weight);
 	}
-	
-	//减去文件末尾来获得文件长度
-	(*FileLength)--;
-
-	*leafNum = SortTree(ht);
-	short m = 2 * *leafNum - 1;
-	//得到叶子节点和总结节点数目
-
-	
-
-	if (1 == *leafNum) {
+	--(*FileLength);	//去掉文件结束后的长度
+	*n = SortTree(ht);
+	m = *n * 2 - 1;		//free(&ht[m+1]);
+	//printf("叶子个数= %d\n",*n);//getchar();
+	if (1 == *n) {
 		ht[0].parent = 1;
 		return ht;
-	} else if (0 > *leafNum) {
+	} else if (0 > *n)
 		return NULL;
-	}
-	//特殊情况的判定
 
-	//创建叶子节点数目
-	for(int i = 0;i < m;i++) {
+	for (i = m - 1; i >= 0; i--) {
 		ht[i].lChild = 0;
-		ht[i].rChild = 0;
 		ht[i].parent = 0;
+		ht[i].rChild = 0;
 	}
-	
-	for(int i = *leafNum;i < m;i++) {
-		int s1,s2;
-		selectMin(ht, i - 1, &s1);
+	/*      ------------初始化完毕！对应算法步骤1--------- */
+	for (i = *n; i < m; i++)	//创建非叶子结点,建哈夫曼树
+	{			//在ht[0]~ht[i-1]的范围内选择两个parent为0且weight最小的结点，其序号分别赋值给s1、s2返回
+		SelectMinTree(ht, i - 1, &s1);
 		ht[s1].parent = i;
 		ht[i].lChild = s1;
 
-		selectMin(ht, i - 1, &s2);
+		SelectMinTree(ht, i - 1, &s2);
 		ht[s2].parent = i;
 		ht[i].rChild = s2;
 
 		ht[i].weight = ht[s1].weight + ht[s2].weight;
-	}
+	}			/*哈夫曼树建立完毕 *///        puts(" over^_^");
 
 	return ht;
 }
 
-//得到哈弗曼编码表
-char **getHuffManCode(HTNode *ht, short leafNum) {
-	char *s;
-	char **hc;
-
-	hc = (char **)malloc((leafNum) * sizeof(char *)); //申请编码表空间
-
-	if(1 == leafNum) {
-		hc[0] = (char *)malloc((leafNum + 1) * sizeof(char));
-		strcpy(hc[0], "0");
-		return hc;
-	}
-	s = (char *)malloc(sizeof(char) * (leafNum + 1));//申请空间
-	s[leafNum] = '\0';	//逆向求编码
-	for(int i = 0; i < leafNum; i++) {	/*求n个叶子结点对应的哈夫曼编码 */
-		int start = leafNum;	
-		int cur = i;
-		for (int p = ht[i].parent; p; p = ht[p].parent) {	/*从叶子到根结点求编码 */
-			if (ht[p].lChild == cur)
-				s[--start] = '0';	/*左分支标0 */
-			else
-				s[--start] = '1';	/*右分支标1 */
-			cur = p;
-		}
-		hc[i] = (char *)malloc((leafNum - start) * sizeof(char));	/*为第i个编码分配空间 */
-		strcpy(hc[i], &s[start]);
-		/*
-		printf("%3d号 %3c 码长:%2d;编码:%s\n", ht[i].ch, ht[i].ch,
-			   LeafNum - start, &cd[start]);
-		*/
-	}	
-	printf("%s",hc['7']);		
-	free(s);		
-	return hc;
-}
-
 //从队列里取8个字符（0、1），转换成一个字节
-type GetBits(Queue *Q) {
-	type bits = 0;
-	char t;
+type GetBits(Queue * Q)
+{
+	type i, bits = 0;
+	char x;
 
-	for(int i = 0;i < 8;i++) {
-		if(Out_Queue(Q,&t) != Empty) {
-			if(t == '0') {
+	for (i = 0; i < 8; i++) {
+		if (Out_Queue(Q, &x) != Empty) {	//printf("%c",x);
+			if ('0' == x)
 				bits = bits << 1;
-			} else {
+			else
 				bits = (bits << 1) | 1;
-			}
-		} else {
-			break;//不足则退出
-		}
-	} 
+		} else
+			break;
+	}			//printf("   bits=%d\n",bits);puts("");
 
 	return bits;
 }
 
 //求最长（最短）编码长度
-void getMaxMinLen(FILE *fp,HTNode *ht,char **hc,short leafNum,type *Max,type *Min) {
-	type len;
+void
+MaxMinLength(FILE * File, HTNode * ht, char **hc, short NLeaf, type * Max,
+	     type * Min)
+{
+	int i;
+	type length;
 
 	*Max = *Min = strlen(hc[0]);
-	for(int i = 0;i < leafNum;i++) {
-		len = strlen(hc[i]);
-		fwrite(&ht[i].ch, sizeof(type), 1,fp);	//字符和对应的
-		fwrite(&len, sizeof(type), 1, fp);	//编码长度写进文件
-		if (len > *Max)
-			*Max = len;
-		if (len < *Min)
-			*Min = len;
+	for (i = 0; i < NLeaf; i++) {
+		length = strlen(hc[i]);
+		fwrite(&ht[i].ch, sizeof(type), 1, File);	//字符和对应的
+		fwrite(&length, sizeof(type), 1, File);	//编码长度写进文件
+		if (length > *Max)
+			*Max = length;
+		if (length < *Min)
+			*Min = length;
 	}
 }
 
 //把出现过的字符编码表经过压缩写进文件
-short WriteCodeToFile(FILE *fp,char **hc,short leafNum,Queue *Q,type *length) {
+short CodeToFile(FILE * fp, char **hc, short n, Queue * Q, type * length)
+{
+	int i;
 	char *p;
-	short Count = 0;
+	type j, bits;
+	short count = 0;
 
-	for(int i = 0;i < leafNum;i++) {
-		for(p = hc[i];*p;p++) {
-			In_Queue(Q,*p);
-		}
-		while(Q->len > 8) {
-			type bits = GetBits(Q);
-			fputc(bits,fp);
-			Count++;
-		}
-	}
+	for (i = 0; i < n; i++)	// 将n个叶子压缩并写入文件
+	{
+		for (p = hc[i]; '\0' != *p; p++)
+			In_Queue(Q, *p);
 
-	*length = Q->len;
-	int i = 8 - *length;
-	type bits = GetBits(Q);
-	for (int j = 0;j < i;j++) {
-		bits = bits << 1;	//补0
-	}
-	fputc(bits, fp);	
-	Count++;		
+		while (Q->length > 8) {	//  puts("出队");
+			bits = GetBits(Q);	//出队8个元素
+			fputc(bits, fp);	//fwrite(&bits,sizeof(char),1,fp);
+			//printf("压字符 %c\n",bits);
+			count++;
+		}
+	}			//     printf("码字最后剩: %d\n",Q->length);
+
+	*length = Q->length;
+	i = 8 - *length;
+	bits = GetBits(Q);	//取8个如果队不空
+	for (j = 0; j < i; j++)
+		bits = bits << 1;	//printf("压 字符 %c\n",bits);
+	fputc(bits, fp);	//fwrite(&bits,sizeof(char),1,fp);
+	count++;		//printf(" 指 针 在%d \n",ftell(fp));
 
 	InitQueue(Q);
-	return Count;
+	return count;
 }
 
+//压缩
+void Compress(char *name,char *rename)
+{
+	type maxLen, minLen, ch, bits, n, finalLength;
+	int i;
+	short LeafNum, codeNum;
+	WeightType count = 0, Length = 0, FileLength;
+	FILE *fp, *compressFile;
+	Queue *Q;
+	HTNode *ht = NULL;
+	char **hc = NULL, **Map = NULL, *p;
 
-void Compress(char *name,char *rename) {
-	//char name[80];
-	//char rename[80];
-	FILE *fp_1;
-	FILE *fp_2;
-
-	//打开文件
-	/*
-	printf("filename to be compressed:");
-	scanf("%s", name);
-	
-	printf("filename after compressed:");
-	scanf("%s", rename);
-	*/
-	fp_1 = fopen(name, "rb");	//原文件
-	fp_2 = fopen(rename, "wb");
 	
 
-	if (!fp_1 || !fp_2) {
-		printf("Cannot open file/(ㄒoㄒ)/~~\n\n");
+	compressFile = fopen(rename, "wb");
+	fp = fopen(name, "rb");	//原文件
+
+	if (!fp || !compressFile) {
+		puts("Cannot open file.");
 		return;
 	}
 
-	//创建哈夫曼树,统计叶子个数和原文件长度
-	short leafNum;
-	WeightType FileLength;
-	HTNode *ht = CreatHFTreeFromFile(fp_1, &leafNum, &FileLength);	
-	
-	printf("FileLenth:%ld",FileLength);
-	//初始化队列
-	Queue *Q = (Queue *) malloc(sizeof(Queue));
-	InitQueue(Q);	
-
-	//得到编码表
-	char **hc = getHuffManCode(ht, leafNum);	
-	
-	char **Map = (char **)malloc(N * sizeof(char *));	//字符编码表
-	
-
-	for(int i = 0; i < N; i++)	//初始化
-		Map[i] = NULL;
-
-	for(int i = 0; i < leafNum; i++) {	// 定位，编码指针数组Map[256]
-		//printf("%c %s\n",ht[i].ch,hc[i]);
-		Map[(int)(ht[i].ch)] = hc[i];
+	ht = CreatHFM(fp, &LeafNum, &FileLength);	//创建哈夫曼树,统计叶子个数和原文件长度
+	if (!FileLength) {	//      printf("文件为空，无须压缩...");
+		fclose(fp);
+		fclose(compressFile);
+		free(ht);
+		return;
+	}
+	Q = (Queue *) malloc(sizeof(Queue));
+	InitQueue(Q);		//SEEK_SET:文件开头 SEEK_CUR:当前位置 SEEK_END:文件结尾
+	hc = CrtHuffmanCode(ht, LeafNum);	//取得哈夫曼0、1编码,hc的长度为LeafNum
+	//Map为了取编码好定位，再建立全部(256个)//
+	Map = (char **)malloc(N * sizeof(char *));	//字符编码表
+	if (!Map) {
+		puts("申请空间失败");
+		return;
 	}
 
-	//printf("first\n");
-	
-	fseek(fp_2, sizeof(WeightType) + sizeof(short) + 6 * sizeof(type), SEEK_SET);	
+	for (i = 0; i < N; i++)	//初始化
+		Map[i] = NULL;
+
+	for (i = 0; i < LeafNum; i++)	// 定位，编码指针数组Map[256]
+		Map[(int)(ht[i].ch)] = hc[i];
+
+	fseek(compressFile, sizeof(WeightType) + sizeof(short) + 6 * sizeof(type), SEEK_SET);	//先占个位置 
 	//先占个位置,等下填压缩叶子编码剩几个和最长编码长//getchar();
-	
-	type maxLen,minLen;
-	getMaxMinLen(fp_2, ht, hc, leafNum, &maxLen, &minLen);	
-	//获得最长码串长度,顺便填写字符对应编码长
-	
-	
-	//printf("最长码串长度: %d\n",maxLen);printf("ftell = %d\n",ftell(fp_2));
-	free(ht);		
-	type lastLen;
-	//printf("second\n");
 
-	short codeNum = WriteCodeToFile(fp_2,hc,leafNum,Q,&lastLen);	
-	//把字符转成其二进制编码写入文件,返回压成多少个
+	MaxMinLength(compressFile, ht, hc, LeafNum, &maxLen, &minLen);	//获得最长码串长度,顺便填写字符对应编码长
+	//      for(i = 0;i < LeafNum;i++)
+	//              if(ht[i].ch == (type)1)
+	//                      printf("char %c %s\n",ht[i].ch,hc[i]);
 
-	rewind(fp_2);	//使文件指针移到开始
-	fseek(fp_2, sizeof(WeightType) + sizeof(type), SEEK_SET);
-	fwrite(&leafNum, sizeof(short), 1, fp_2);	//写入叶子个数
-	fwrite(&maxLen, sizeof(type), 1, fp_2);	//最长码串长度
-	fwrite(&minLen, sizeof(type), 1, fp_2);	//最短码串长度
-	fwrite(&codeNum, sizeof(short), 1, fp_2);	//填写叶子编码压多少个
-	fwrite(&lastLen, sizeof(type), 1, fp_2);	//最后剩
-	//printf("叶子共压：%d个,最后剩%d个\n\n",codeNum,lastLen);
+	free(ht);		//getchar();printf("最长码串长度: %d\n",MaxCode);printf("ftell = %d\n",ftell(compressFile));
+	codeNum = CodeToFile(compressFile, hc, LeafNum, Q, &finalLength);	//把字符转成其二进制编码写入文件,返回压成多少个
 
-	fseek(fp_2, 2 * leafNum * sizeof(type) + codeNum, SEEK_CUR);
-	//printf("开始正文ftell= %d 原文长%d\n",ftell(fp_2),FileLength);
-	fseek(fp_1, 0, SEEK_SET);
-	//printf("源文件ftell= %d\n",ftell(fp_1));
-	
-	WeightType Count = 0;
-	WeightType Length = 0;
+	rewind(compressFile);	//使文件指针移到开始printf("ftelll = %d\n",ftell(compressFile));
+	fseek(compressFile, sizeof(WeightType) + sizeof(type), SEEK_SET);
+	fwrite(&LeafNum, sizeof(short), 1, compressFile);	//写入叶子个数
+	fwrite(&maxLen, sizeof(type), 1, compressFile);	//最长码串长度
+	fwrite(&minLen, sizeof(type), 1, compressFile);	//最短码串长度
+	//printf("MaxLen %d Min %d ftell = %d\n",maxLen,minLen,ftell(compressFile));getchar();
+	fwrite(&codeNum, sizeof(short), 1, compressFile);	//填写叶子编码压多少个
+	fwrite(&finalLength, sizeof(type), 1, compressFile);	//最后剩
+	//printf("叶子共压：%d个,最后剩%d个\n\n",codeNum,finalLength);
 
-	//printf("third\n");
-	while(Count < FileLength) {
-		type ch;
-		fread(&ch,sizeof(type),1,fp_1);
-		//printf("Read读 : %c 值 %d %s\n",ch,ch,Map[ch]);	  
-		char *p;     
-		type bits;
-		++Count;	
-		for (p = Map[ch]; *p != '\0'; p++) {
+	fseek(compressFile, 2 * LeafNum * sizeof(type) + codeNum, SEEK_CUR);
+	//printf("开始正文ftell= %d 原文长%d\n",ftell(compressFile),FileLength);getchar();
+	fseek(fp, 0, SEEK_SET);
+	printf("Please wait a minute,compressing...");
+
+	while (count < FileLength) {
+		ch = fgetc(fp);	//fread(&ch,sizeof(type),1,fp);        
+		++count;	//     printf("Read读 : %c 值 %d %s\n",ch,ch,Map[ch]);
+		for (p = Map[ch]; *p != '\0'; p++)
 			In_Queue(Q, *p);
-		}
-		
-		while (Q->len > 8) {
+		//printf("\nQlength: %d\n",Q->length);
+
+		while (Q->length > 8)	//  printf("OutQueue: ");
+		{
 			bits = GetBits(Q);	//出队8个元素,合成一个字节
-			//printf("压：%c\n",bits);
-			fputc(bits, fp_2);	    
-			Length++;	
+			fputc(bits, compressFile);	//fwrite(&bits,1,1,compressFile);      
+			Length++;	//     printf("压：%c\n",bits);
 		}
-	}		
-
-	//printf("fourth\n");
+	}			//end of while
 	//最后一个bits ;
-	lastLen = Q->len;	
-	type n = 8 - lastLen;
-	type bits = GetBits(Q);
-	
-	for (int i = 0; i < n; i++)
+	finalLength = Q->length;	//printf("最后剩Qlength:%d\n",Q->length);
+	n = 8 - finalLength;
+	bits = GetBits(Q);
+	//printf("最后Qlength:%d\n",Q->length);
+	for (i = 0; i < n; i++)
 		bits = bits << 1;	//以‘0’补
-
-	fwrite(&bits, sizeof(type), 1, fp_2);	
+	//fputc(bits,compressFile);
+	fwrite(&bits, sizeof(type), 1, compressFile);	//printf("\nfinal压：%c\n",bits);
 	Length++;
 
-	rewind(fp_2);	
-	fwrite(&Length, sizeof(WeightType), 1, fp_2);	//压缩后的长
-	fwrite(&lastLen, sizeof(char), 1, fp_2);	//最后的串长
-	
-	fclose(fp_1);
-	fclose(fp_2);
+	rewind(compressFile);	//原文件长fwrite(&FileLength,sizeof(WeightType),1,compressFile);
+	fwrite(&Length, sizeof(WeightType), 1, compressFile);	//压缩后的长
+	fwrite(&finalLength, sizeof(char), 1, compressFile);	//最后的串长
+
+	Length = Length + 12 + codeNum;	//printf("原文件长 %ld;压缩后 %ld\n",FileLength,Length);
+
+	if (Length >= FileLength)
+		puts("\nCompression rate: 0.0%");
+	else
+		printf("\nCompression rate: %.2lf%c\n",
+		       (double)((FileLength -
+				 Length) / (double)FileLength) * 100.0, '%');
+
+	fclose(fp);
+	fclose(compressFile);
 	free(Q);
 	free(hc);
 	free(Map);
 }
 
-
 //把读出的字符，转换成8个0、1字符串并入队
-void InToQueue(Queue *Q,type ch) {
-	type tmp;
+void ToQueue(Queue * Q, type ch)
+{
+	int i;
+	type temp;
 
-	for(int i = 0;i < 8;i++) {
-		tmp = ch << i;
-		tmp = tmp >> 7;
-		if(tmp == 1) {
-			In_Queue(Q,'1');
-		} else {
-			In_Queue(Q,'0');
-		}
-	}
+	for (i = 0; i < 8; i++) {
+		temp = ch << i;
+		temp = temp >> 7;
+		if (1 == temp)
+			In_Queue(Q, '1');	//printf("1");
+		else
+			In_Queue(Q, '0');	//printf("0");
+	}			//puts("");
 }
 
 //解压缩
-void UnCompress(char *name,char *rename) {
-	FILE *fp_1;
-	FILE *fp_2;
-	/*
-	fflush(stdin);		//清空输入缓冲区域
-	printf("filename to be uncompressed:");
-	scanf("%s", name);
-	fflush(stdin);		//清空输入缓冲区域
-	printf("filename after uncompressed:");
-	scanf("%s", rename);
-	*/
-	fp_1 = fopen(name, "rb");
-	fp_2 = fopen(rename, "wb");
-	if (!fp_1 || !fp_2) {
-		printf("Cannot open files./(ㄒoㄒ)/~~");
+void UnCompress(char *name,char *rename)
+{
+	type *str, MaxLength, MinLength, ch, *num, finalLength = 0, final = 0;
+	FILE *cf, *uf;
+	short NLeaf, Ncom;
+	char **hc, *p, x, *buf;
+	Queue *Q = NULL;
+	int i, j;
+	WeightType srcLen = 0, thisFile = 0;
+
+	
+
+	cf = fopen(name, "rb");
+	uf = fopen(rename, "wb");
+	if (!cf || !uf) {
+		puts("Cannot open files.");
 		return;
 	}
 
-	WeightType FileLength;
-	type lastLen;
-	short leafNum;
-	type MaxLength,MinLength;
-	fread(&FileLength, sizeof(WeightType), 1, fp_1);	
-	fread(&lastLen, 1, 1, fp_1);	
-	fread(&leafNum, sizeof(short), 1, fp_1);	
-	fread(&MaxLength, sizeof(type), 1, fp_1);
-	fread(&MinLength, sizeof(type), 1, fp_1);
+	fread(&srcLen, sizeof(WeightType), 1, cf);	//printf("压后文件长：%ld\n",srcLen);
+	fread(&finalLength, 1, 1, cf);	//   printf("原文件压剩:%d个\n",finalLength);
+	fread(&NLeaf, sizeof(short), 1, cf);	//printf("叶子:%d个\n",NLeaf);
+	fread(&MaxLength, sizeof(type), 1, cf);
+	fread(&MinLength, sizeof(type), 1, cf);
+//printf("MaxLength = %d;minLen= %d,Leaf= %d\n",MaxLength,MinLength,NLeaf);getchar();
+	Q = (Queue *) malloc(sizeof(Queue));
 
-	Queue *Q = (Queue *) malloc(sizeof(Queue));
-	InitQueue(Q);
-
-	char *buf = (char *)malloc((2 + MaxLength * sizeof(char)));
-	type *str = (type *) malloc(leafNum * sizeof(type));
-	type *num = (type *) malloc(leafNum * sizeof(type));
+	buf = (char *)malloc((2 + MaxLength * sizeof(char)));
+	str = (type *) malloc(NLeaf * sizeof(type));
+	num = (type *) malloc(NLeaf * sizeof(type));
 	//压缩叶子数量x和最后剩长
-	
-	
-	short Ncom;
-	type Final;
-	fread(&Ncom, sizeof(short), 1, fp_1);
-	fread(&Final, sizeof(type), 1, fp_1);
-
-	//读取叶子及其码长
-	for (int i = 0; i < leafNum; i++)	{
-		fread(&str[i], sizeof(type), 1, fp_1);
-		fread(&num[i], sizeof(type), 1, fp_1);
+	if (!Q || !str || !num || !buf) {
+		puts("Memery error.");
+		exit(1);
 	}
-	
-	char **hc = (char **)malloc((leafNum) * sizeof(char *));	//hc为编码表的指针数组
-	
+	InitQueue(Q);		//初始化
+
+	fread(&Ncom, sizeof(short), 1, cf);
+	fread(&final, sizeof(type), 1, cf);
+
+	for (i = 0; i < NLeaf; i++)	//读取叶子及其码长
+	{
+		fread(&str[i], sizeof(type), 1, cf);
+		fread(&num[i], sizeof(type), 1, cf);
+		//printf("chars= %c;num= %d\n",Chars[i],CHlength[i]);
+	}
+	//printf("read ftell= %d\n",ftell(cf));//getchar();
+	//      printf("\n叶子码字压缩后%d个,最后剩%d个\n",Ncom,final);
+
+	hc = (char **)malloc((NLeaf) * sizeof(char *));	//hc为编码表的指针数组
+	if (!hc)
+		exit(1);
 
 	--Ncom;			//printf("开始取叶子编码ftell = %d Ncom=%d\n",ftell(cf),Ncom);
-
-	int i,j;
-	char *p;
 	for (j = i = 0; i < Ncom; i++) {
-		char ch = fgetc(fp_1);	
-		InToQueue(Q, ch);	
-		while (Q->len > MaxLength) {
+		ch = fgetc(cf);	//fread(&ch,1,1,cf);
+		ToQueue(Q, ch);	//printf("Q->Len= %d\n",Q->length);
+		while (Q->length > MaxLength) {
 			hc[j] = p = (char *)malloc(1 + num[j]);
 			for (ch = 0; ch < num[j]; ch++) {
-				char x;
 				Out_Queue(Q, &x);
 				*p++ = x;
 			}
@@ -441,12 +425,10 @@ void UnCompress(char *name,char *rename) {
 			j++;
 		}
 	}
-	char ch = fgetc(fp_1);		//fread(&ch,1,1,cf);//最后一个
-	InToQueue(Q, ch);
-	Final = 8 - Final;
-
-	while (Q->len > Final) {
-		char x;
+	ch = fgetc(cf);		//fread(&ch,1,1,cf);//最后一个
+	ToQueue(Q, ch);
+	final = 8 - final;
+	while (Q->length > final) {
 		p = hc[j] = (char *)malloc(1 + num[j]);
 		for (ch = 0; ch < num[j]; ch++) {
 			Out_Queue(Q, &x);
@@ -457,19 +439,18 @@ void UnCompress(char *name,char *rename) {
 	}
 
 	InitQueue(Q);
-	--FileLength;
+	--srcLen;
 	--MinLength;
-
-	WeightType thisFile = 0;
-
-	while (thisFile < FileLength) {
-		ch = fgetc(fp_1);	
-		InToQueue(Q, ch);
-		thisFile++;	
+	//printf("开始解压正文%d ,压后长= %d\n",ftell(cf),srcLen);getchar();
+	//printf("Please wait a minute,uncompressing...");
+	while (thisFile < srcLen) {
+		//      printf("QLength= %d\n",Q->length);
+		ch = fgetc(cf);	//fread(&ch,sizeof(type),1,cf);
+		ToQueue(Q, ch);
+		thisFile++;	//   printf("char:%c",ch);
 		//完了后队列长于码串的最大值       
 
-		while (Q->len > MaxLength) {
-			char x;			
+		while (Q->length > MaxLength) {
 			for (i = 0; i < MinLength; i++) {
 				Out_Queue(Q, &x);
 				buf[i] = x;
@@ -478,28 +459,25 @@ void UnCompress(char *name,char *rename) {
 				Out_Queue(Q, &x);
 				buf[i] = x;
 				buf[i + 1] = '\0';
-				for (j = 0; j < leafNum; j++) {
+				for (j = 0; j < NLeaf; j++) {
 					if (i + 1 == num[j]
 					    && 0 == strcmp(hc[j], buf)) {
-						ch = str[j];	
-						fputc(ch, fp_2);	
+						ch = str[j];	//printf("出队 %s\n",buf);
+						fputc(ch, uf);	//fwrite(&ch,1,1,uf);////printf("解   出：%c\n",ch);
 						break;
 					}
 				}
-				if (j < leafNum)
+				if (j < NLeaf)
 					break;
 			}
-		}		
+		}		//while MaxLength
 	}
 
-	ch = fgetc(fp_1);		//fread(&ch,1,1,cf);//读取最后一个压缩字getchar();
-	InToQueue(Q, ch);
+	ch = fgetc(cf);		//fread(&ch,1,1,cf);//读取最后一个压缩字getchar();
+	ToQueue(Q, ch);
 
-	lastLen = 8 - lastLen;
-
-	while (Q->len > lastLen) {
-		int i,j;
-		char x;
+	finalLength = 8 - finalLength;
+	while (Q->length > finalLength) {
 		for (i = 0; i < MinLength; i++) {
 			Out_Queue(Q, &x);
 			buf[i] = x;
@@ -508,21 +486,22 @@ void UnCompress(char *name,char *rename) {
 			Out_Queue(Q, &x);
 			buf[i] = x;
 			buf[i + 1] = '\0';
-			for (j = 0; j < leafNum; j++) {
+			for (j = 0; j < NLeaf; j++) {
 				if (i + 1 == num[j] && 0 == strcmp(hc[j], buf)) {
 					ch = str[j];	//printf("出 %s\n",buf);
-					fputc(ch, fp_2);	//fwrite(&ch,1,1,uf);//printf("解   出：%c\n",ch);
+					fputc(ch, uf);	//fwrite(&ch,1,1,uf);//printf("解   出：%c\n",ch);
 					break;
 				}
 			}
-			if (j < leafNum)
+			if (j < NLeaf)
 				break;
 		}
 	}
+	//printf("Q->length= %d\n",Q->length);printf("ftell= %d\n",ftell(uf));
 	free(Q);
 	free(str);
 	free(num);
 	free(hc);
-	fclose(fp_1);
-	fclose(fp_2);
+	fclose(uf);
+	fclose(cf);
 }

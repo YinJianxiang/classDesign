@@ -9,8 +9,6 @@
 #define _UI_H
 
 
-//HuffManTree tree = NULL;
-//int cnt;
 
 void main_UI();//主界面
 void showHuffManCode();//显示哈弗曼编码
